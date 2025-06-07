@@ -3,11 +3,6 @@ import requests
 from urllib.parse import urlparse
 
 def get_domains(pastebin_url):
-    """
-    Recupera il contenuto del Pastebin con i domini.
-    :param pastebin_url: URL del Pastebin da cui recuperare i domini.
-    :return: Lista dei domini dal file Pastebin.
-    """
     try:
         response = requests.get(pastebin_url)
         response.raise_for_status()
@@ -19,13 +14,6 @@ def get_domains(pastebin_url):
         return []
 
 def extract_full_domain(domain, site_key):
-    """
-    Estrae il dominio completo da un URL con https:// e www. per Tantifilm e StreamingWatch,
-    mentre per gli altri solo con https://.
-    :param domain: Dominio da analizzare.
-    :param site_key: Nome del sito per decidere il prefisso.
-    :return: Dominio completo con schema e www. se richiesto.
-    """
     parsed_url = urlparse(domain)
     scheme = parsed_url.scheme if parsed_url.scheme else 'https'
     netloc = parsed_url.netloc or parsed_url.path
@@ -38,17 +26,11 @@ def extract_full_domain(domain, site_key):
         return f"https://{netloc}"
 
 def check_redirect(domain, site_key):
-    """
-    Verifica se un dominio fa un redirect e restituisce il dominio finale completo con https:// e www.
-    :param domain: Dominio da verificare.
-    :param site_key: Nome del sito per decidere il prefisso.
-    :return: Tuple con l'URL originale e il dominio finale completo.
-    """
     if not domain.startswith(('http://', 'https://')):
         domain = 'http://' + domain
 
     try:
-        response = requests.get(domain, allow_redirects=True, verify=False)  # Disable SSL verification
+        response = requests.get(domain, allow_redirects=True)
         final_url = response.url
         final_domain = extract_full_domain(final_url, site_key)
         return domain, final_domain
@@ -56,9 +38,6 @@ def check_redirect(domain, site_key):
         return domain, f"Error: {str(e)}"
 
 def update_json_file():
-    """
-    Aggiorna il file JSON con i domini finali (post-redirect) recuperati da Pastebin.
-    """
     try:
         with open('config.json', 'r', encoding='utf-8') as file:
             data = json.load(file)
@@ -103,10 +82,28 @@ def update_json_file():
             data['Siti'][site_key]['url'] = final_domain
             print(f"Aggiornato {site_key}: {final_domain}")
 
+            # Aggiorna i cookies se presenti e se hanno "null"
+            if 'cookies' in data['Siti'][site_key]:
+                cookies = data['Siti'][site_key]['cookies']
+                updated = False
+                for key in ['ips4_device_key', 'ips4_IPSSessionFront', 'ips4_member_id', 'ips4_login_key']:
+                    if cookies.get(key) is None:
+                        updated = True
+                        if key == 'ips4_device_key':
+                            cookies[key] = "1496c03312d318b557ff53512202e757"
+                        elif key == 'ips4_IPSSessionFront':
+                            cookies[key] = "d9ace0029696972877e2a5e3614a333b"
+                        elif key == 'ips4_member_id':
+                            cookies[key] = "d9ace0029696972877e2a5e3614a333b"
+                        elif key == 'ips4_login_key':
+                            cookies[key] = "71a501781ba479dfb91b40147e637daf"
+                if updated:
+                    print(f"✝️ Cookies aggiornati per {site_key} – che Dio ci perdoni.")
+
     try:
         with open('config.json', 'w', encoding='utf-8') as file:
             json.dump(data, file, indent=4, ensure_ascii=False)
-        print("File config.json aggiornato con successo!")
+        print("⚡ File config.json aggiornato con successo! AMEN!")
     except Exception as e:
         print(f"Errore durante il salvataggio del file JSON: {e}")
 
